@@ -7,6 +7,7 @@ remappings =[
     "@squid-interfaces/=src/interfaces/squid/",
     "@uniswap-interfaces/=src/interfaces/uniswap/",
     "@uniswap/v3-periphery/=lib/v3-periphery/", 
+    "@uniswap/v3-core/=lib/v3-core/",
 ]
 
 # See more config options https://github.com/foundry-rs/foundry/blob/master/crates/config/README.md#all-options

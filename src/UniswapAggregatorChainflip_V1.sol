@@ -6,9 +6,11 @@ import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {ISwapRouter} from "@uniswap/v3-periphery/contracts/interfaces/ISwapRouter.sol";
 import {TransferHelper} from "@uniswap/v3-periphery/contracts/libraries/TransferHelper.sol";
+import {IVault} from "@chainflip-interfaces/IVault.sol";
 
 contract UniswapAggregatorChainflip_V1 is Ownable {
     ISwapRouter router;
+    IVault cfVault;
 
     event UniswapCCM(
         uint32 srcChain,
@@ -16,22 +18,27 @@ contract UniswapAggregatorChainflip_V1 is Ownable {
         address token,
         uint256 amount
     );
+    event Debug(string src);
 
     address constant ETH_ADDRESS = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
     /// This is a mapping of token address to chain address to reduce the message and thus reducing the gas cost
     mapping(uint32 => address) public tokenToAddress;
-    uint256 public tokenCount;
+    uint32 public tokenCount;
 
     constructor(
         address _router,
         address owner,
-        address[] tokens
+        address[] memory tokens,
+        address _cfVault
     ) Ownable(owner) {
         router = ISwapRouter(_router);
-        for (uint256 i = 1; i <= tokens.length; i++) {
-            tokenToAddress[i] = tokens[i];
+        for (uint32 i = 1; i <= tokens.length; i++) {
+            tokenToAddress[i] = tokens[i - 1];
         }
-        tokenCount = tokens.length;
+        cfVault = IVault(_cfVault);
+
+        //TODO: Add safe cast for uint32->uint256
+        tokenCount = uint32(tokens.length);
     }
 
     receive() external payable {}
@@ -54,14 +61,15 @@ contract UniswapAggregatorChainflip_V1 is Ownable {
         return tokenToAddress[tokenId];
     }
 
-    function uniswapReceive(
+    function cfReceive(
         uint32 srcChain,
         bytes calldata srcAddress,
         bytes calldata message,
         address token,
         uint256 amount
-    ) external payable returns (uint256 amountOut){
-        require(msg.sender == address(router), "only router");
+    ) external payable returns (uint256 amountOut) {
+        require(msg.sender == address(cfVault), "only router");
+        emit Debug("Called");
         (
             uint32 tokenIn,
             uint32 tokenOut,
@@ -69,7 +77,11 @@ contract UniswapAggregatorChainflip_V1 is Ownable {
             uint256 amountOutMin,
             uint24 poolFee,
             address recipient
-        ) = abi.decode(message, (uint32, uint32, uint256, uint256,uint24,address));
+        ) = abi.decode(
+                message,
+                (uint32, uint32, uint256, uint256, uint24, address)
+            );
+
         amountOut = _singleHopSwapExactInputAmount(
             amountIn,
             amountOutMin,
@@ -78,12 +90,7 @@ contract UniswapAggregatorChainflip_V1 is Ownable {
             poolFee,
             recipient
         );
-        emit UniswapCCM(
-            srcChain,
-            srcAddress,
-            token,
-            amount
-        );
+        emit UniswapCCM(srcChain, srcAddress, token, amount);
     }
 
     function _singleHopSwapExactInputAmount(
@@ -94,26 +101,27 @@ contract UniswapAggregatorChainflip_V1 is Ownable {
         uint24 poolFee,
         address recipient
     ) internal returns (uint256) {
-        address tokenIn = tokenToAddress(inputToken);
-        address tokenOut = tokenToAddress(outputToken);
+        address tokenIn = tokenToAddress[inputToken];
+        address tokenOut = tokenToAddress[outputToken];
 
         _isNotZero(tokenIn);
         _isNotZero(tokenOut);
 
         TransferHelper.safeApprove(tokenIn, address(router), amountIn);
+        emit Debug("approved");
 
-        ISwapRouter.ExactInputParams memory paramas = ISwapRouter
-            .ExactInputParams({
+        ISwapRouter.ExactInputSingleParams memory paramas = ISwapRouter
+            .ExactInputSingleParams({
                 tokenIn: tokenIn,
                 tokenOut: tokenOut,
                 fee: poolFee,
                 recipient: recipient,
-                deadline: block.timeStamp,
+                deadline: block.timestamp,
                 amountIn: amountIn,
                 amountOutMinimum: amountOutMin,
                 sqrtPriceLimitX96: 0
             });
-
+        emit Debug("Called swap");
         return router.exactInputSingle(paramas);
     }
 
