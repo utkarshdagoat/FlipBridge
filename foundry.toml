@@ -1,0 +1,12 @@
+[profile.default]
+src = "src"
+out = "out"
+libs = ["lib"]
+remappings =[
+    "@chainflip-interfaces/=src/interfaces/chainflip/interfaces",
+    "@squid-interfaces/=src/interfaces/squid/",
+    "@uniswap-interfaces/=src/interfaces/uniswap/",
+    "@uniswap/v3-periphery/=lib/v3-periphery/", 
+]
+
+# See more config options https://github.com/foundry-rs/foundry/blob/master/crates/config/README.md#all-options
