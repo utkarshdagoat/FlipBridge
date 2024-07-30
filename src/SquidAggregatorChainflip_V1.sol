@@ -49,6 +49,19 @@ contract SquidAggregatorChainflip_V1 is Ownable {
         return cfVault;
     }
 
+    struct SquidCCMData {
+        uint32 srcChain;
+        bytes srcAddress;
+        address token;
+        uint256 amount;
+        string destinationChain;
+        string destinationAddress;
+        bool enableExpress;
+        address reciepent;
+        string bridgedTokenSymbol;
+        bytes payload;
+    }
+
     function cfReceive(
         uint32 srcChain,
         bytes calldata srcAddress,
@@ -58,41 +71,22 @@ contract SquidAggregatorChainflip_V1 is Ownable {
     ) external payable {
         require(msg.sender == address(cfVault), "only cfvault");
         (
-            address squidToken,
-            uint256 squidAmount,
             ISquidMulticall.Call[] memory calls,
-            string memory bridgedTokenSymbol,
-            string memory destinationChain,
-            string memory destinationAddress,
-            bytes memory payload,
-            address gasRefundRecipient,
-            bool enableExpress
-        ) = abi.decode(
-                message,
-                (
-                    address,
-                    uint256,
-                    ISquidMulticall.Call[],
-                    string,
-                    string,
-                    string,
-                    bytes,
-                    address,
-                    bool
-                )
-            );
+            SquidCCMData memory squidCCMData
+        ) = abi.decode(message, (ISquidMulticall.Call[], SquidCCMData));
+        bytes memory destinationAddress = abi.encodePacked(squidCCMData.reciepent);
         require(token == address(0), "token not supported");
         require(amount == 0, "amount not supported");
         router.callBridgeCall(
-            squidToken,
-            squidAmount,
+            squidCCMData.token,
+            squidCCMData.amount,
             calls,
-            bridgedTokenSymbol,
-            destinationChain,
-            destinationAddress,
-            payload,
-            gasRefundRecipient,
-            enableExpress
+            squidCCMData.bridgedTokenSymbol,
+            squidCCMData.destinationChain,
+            string(destinationAddress),
+            squidCCMData.payload,
+            squidCCMData.reciepent,
+            squidCCMData.enableExpress
         );
     }
 }
