@@ -31,7 +31,7 @@
 <br />
 <div align="center">
   <a href="https://github.com/utkarshdagoat/FlipBridge">
-    <img src="images/logo.png" alt="Logo" width="80" height="80">
+    <img src="images/logo.png" alt="Logo" width="120">
   </a>
 
 <h3 align="center">Flip Bridge </h3>
@@ -164,7 +164,7 @@ This is an example of how to list things you need to use the software and how to
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
 ### Running the foundry tests
-Ensure you get the latest route data via the chainflip SDK.
+Ensure you get the latest route data via the Uniswap Alpha router SDK.
 ```bash
 cd flipBridge &&  forge test --fork-url <Your-Fork-url>  --match
 -path test/UniswapAggregator.t.sol -vvv  --gas-report
