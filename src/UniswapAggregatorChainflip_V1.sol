@@ -23,9 +23,7 @@ contract UniswapAggregatorChainflip_V1 is Ownable {
     event Debug(string src);
 
     address constant ETH_ADDRESS = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
-    /// This is a mapping of token address to chain address to reduce the message and thus reducing the gas cost
-    mapping(uint32 => address) public tokenToAddress;
-    uint32 public tokenCount;
+
     address swapRouter02;
     error UniswapError();
 
@@ -50,16 +48,6 @@ contract UniswapAggregatorChainflip_V1 is Ownable {
         return address(router);
     }
 
-    function addToken(address _token) external returns (uint256) {
-        tokenCount++;
-        tokenToAddress[tokenCount] = _token;
-        return tokenCount;
-    }
-
-    function getToken(uint32 tokenId) external view returns (address) {
-        return tokenToAddress[tokenId];
-    }
-
     function cfReceive(
         uint32 srcChain,
         bytes calldata srcAddress,
@@ -68,66 +56,17 @@ contract UniswapAggregatorChainflip_V1 is Ownable {
         uint256 amount
     ) external payable returns (uint256 amountOut) {
         require(msg.sender == address(cfVault), "only router");
-        emit Debug("cfReceive");
-        emit BytesDebug(message);
-        IERC20(token).approve(swapRouter02, amount);
-        (bool _success, ) = swapRouter02.call(message);
-        if (!_success) {
-            revert UniswapError();
+        if (msg.value > 0) {
+
+        } else {
+            IERC20(token).approve(swapRouter02, amount);
+            (bool _success, ) = swapRouter02.call(message);
+            if (!_success) {
+                revert UniswapError();
+            }
         }
+
         emit UniswapCCM(srcChain, srcAddress, token, amount);
-    }
-
-    function _singleHopSwapExactInputAmount(
-        uint256 amountIn,
-        uint256 amountOutMin,
-        uint32 inputToken,
-        uint32 outputToken,
-        uint24 poolFee,
-        address recipient
-    ) internal returns (uint256) {
-        address tokenIn = tokenToAddress[inputToken];
-        address tokenOut = tokenToAddress[outputToken];
-
-        _isNotZero(tokenIn);
-        _isNotZero(tokenOut);
-
-        TransferHelper.safeApprove(tokenIn, address(router), amountIn);
-        emit Debug("approved");
-
-        ISwapRouter.ExactInputSingleParams memory paramas = ISwapRouter
-            .ExactInputSingleParams({
-                tokenIn: tokenIn,
-                tokenOut: tokenOut,
-                fee: poolFee,
-                recipient: recipient,
-                deadline: block.timestamp,
-                amountIn: amountIn,
-                amountOutMinimum: amountOutMin,
-                sqrtPriceLimitX96: 0
-            });
-        emit Debug("Called swap");
-        return router.exactInputSingle(paramas);
-    }
-
-    ///@dev had to change it to external for implicit conversion from bytes memory to bytes calldata
-    function _exactInput(
-        bytes calldata path,
-        address recipient,
-        uint256 amountIn,
-        uint256 amountOutMinimum,
-        address token
-    ) public returns (uint256 amountOut) {
-        TransferHelper.safeApprove(token, address(router), amountIn);
-        ISwapRouter.ExactInputParams memory params = ISwapRouter
-            .ExactInputParams({
-                path: path,
-                recipient: recipient,
-                deadline: block.timestamp,
-                amountIn: amountIn,
-                amountOutMinimum: amountOutMinimum
-            });
-        return router.exactInput(params);
     }
 
     function _isNotZero(address token) internal pure returns (bool) {
