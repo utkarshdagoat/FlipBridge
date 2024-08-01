@@ -30,11 +30,12 @@ format :; forge fmt
 
 anvil :; anvil -m 'test test test test test test test test test test test junk' --steps-tracing --block-time 1
 
-NETWORK_ARGS := --rpc-url http://localhost:8545 --private-key $(DEFAULT_ANVIL_KEY) --broadcast
 
-ifeq ($(findstring --network sepolia,$(ARGS)),--network ubit)
-	NETWORK_ARGS := --rpc-url $(SEPOLIA_RPC_URL) --private-key $(PRIVATE_KEY) --broadcast -vvvv
-endif
+NETWORK_ARGS := --rpc-url $(RPC_URL) --private-key $(PRIVATE_KEY) --broadcast -vvvv --verify ${ETHERSCAN_API_KEY}
 
-deployToken:
-	@forge script script/DeployVT.s.sol:DeployVT $(NETWORK_ARGS)
+deploy:
+	@forge script script/Deploy.s.sol:DeploySepolia $(NETWORK_ARGS)
+
+deployMainnet:
+	@forge script script/Deploy.s.sol:DeployMainnet $(NETWORK_ARGS) 
+

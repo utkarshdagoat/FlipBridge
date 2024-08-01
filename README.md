@@ -97,6 +97,43 @@ Here is the architecture and internal working for the Aggreagator contract
 [![Architecture][architecure]](https://example.com)
 
 ### Aggregator Contract's cfRecieve
+```javascript
+ function cfReceive(
+        uint32 srcChain,
+        bytes calldata srcAddress,
+        bytes calldata message,
+        address token,
+        uint256 amount
+    ) external payable returns (uint256 amountOut) {
+        require(msg.sender == address(cfVault), "only router");
+        (bytes memory callData, address sender) = abi.decode(
+            message,
+            (bytes, address)
+        );
+        if (msg.value > 0) {
+            wETH.deposit{value:msg.value}();
+            wETH.approve(address(swapRouter), msg.value);
+            (bool _success, ) = address(swapRouter).call(callData);
+            if (!_success) {
+                wETH.withdraw(msg.value);
+                payable(sender).transfer(msg.value);
+                emit UniswapErrorFundsReturned(ETH_ADDRESS, sender, msg.value);
+            }
+        } else {
+            IERC20(token).approve(address(swapRouter), amount);
+            (bool _success, ) = address(swapRouter).call(callData);
+            if (!_success) {
+                IERC20(token).transfer(sender, amount);
+                emit UniswapErrorFundsReturned(token, sender, amount);
+            }
+        }
+
+        emit UniswapCCM(srcChain, srcAddress, token, amount);
+    }
+```
+The tests are written in `test/UniswapAggregator.t.sol`
+
+### The contract is live on the mainnet here <a href="https://etherscan.io/address/0xa8c9718d3a790604311206d1748a1e17334eef8b">0xa8c9718d3a790604311206d1748a1e17334eef8b</a>
 
 <!-- GETTING STARTED -->
 ## Getting Started
@@ -126,8 +163,12 @@ This is an example of how to list things you need to use the software and how to
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
-
-
+### Running the foundry tests
+Ensure you get the latest route data via the chainflip SDK.
+```bash
+cd flipBridge &&  forge test --fork-url <Your-Fork-url>  --match
+-path test/UniswapAggregator.t.sol -vvv  --gas-report
+```
 <!-- USAGE EXAMPLES -->
 ## Usage
 
@@ -140,12 +181,11 @@ _For more examples, please refer to the [Documentation](https://example.com)_
 
 
 <!-- ROADMAP -->
-## Roadmap
+## Future Prospects for Flip Bridge
 
-- [ ] Feature 1
-- [ ] Feature 2
-- [ ] Feature 3
-    - [ ] Nested Feature
+#### Expansion of Supported Tokens and Networks:
+Integration with More DEXs: Extend support to other major decentralized exchanges (DEXs) like SushiSwap, PancakeSwap, and Balancer to provide users with a wider range of token swapping options and deeper liquidity pools.
+#### Intergration With squid router!!
 
 See the [open issues](https://github.com/utkarshdagoat/FlipBridge/issues) for a full list of proposed features (and known issues).
 
@@ -183,7 +223,7 @@ Distributed under the MIT License. See `LICENSE.txt` for more information.
 <!-- CONTACT -->
 ## Contact
 
-Your Name - [@twitter_handle](https://twitter.com/twitter_handle) - email@email_client.com
+Utkarsh - utkarsh382004@gmail.com
 
 Project Link: [https://github.com/utkarshdagoat/FlipBridge](https://github.com/utkarshdagoat/FlipBridge)
 
@@ -191,12 +231,6 @@ Project Link: [https://github.com/utkarshdagoat/FlipBridge](https://github.com/u
 
 
 
-<!-- ACKNOWLEDGMENTS -->
-## Acknowledgments
-
-* []()
-* []()
-* []()
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
