@@ -8,6 +8,7 @@ import {ISwapRouter} from "@uniswap/v3-periphery/contracts/interfaces/ISwapRoute
 import {TransferHelper} from "@uniswap/v3-periphery/contracts/libraries/TransferHelper.sol";
 import {IVault} from "@chainflip-interfaces/IVault.sol";
 import {SafeCast} from "@openzeppelin/contracts/utils/math/SafeCast.sol";
+
 contract UniswapAggregatorChainflip_V1 is Ownable {
     ISwapRouter router;
     IVault cfVault;
@@ -25,22 +26,19 @@ contract UniswapAggregatorChainflip_V1 is Ownable {
     /// This is a mapping of token address to chain address to reduce the message and thus reducing the gas cost
     mapping(uint32 => address) public tokenToAddress;
     uint32 public tokenCount;
+    address swapRouter02;
+    error UniswapError();
 
     constructor(
-        address _router,
         address owner,
-        address[] memory tokens,
-        address _cfVault
+        address _cfVault,
+        address _swapRouter02
     ) Ownable(owner) {
-        router = ISwapRouter(_router);
-        for (uint32 i = 1; i <= tokens.length; i++) {
-            tokenToAddress[i] = tokens[i - 1];
-        }
         cfVault = IVault(_cfVault);
-
-        //TODO: Add safe cast for uint32->uint256
-        tokenCount = tokens.length.toUint32();
+        swapRouter02 = _swapRouter02;
     }
+
+    event BytesDebug(bytes);
 
     receive() external payable {}
 
@@ -70,31 +68,13 @@ contract UniswapAggregatorChainflip_V1 is Ownable {
         uint256 amount
     ) external payable returns (uint256 amountOut) {
         require(msg.sender == address(cfVault), "only router");
-        emit Debug("Called");
-        (
-            bytes memory swapPath,
-            uint256 amountIn,
-            uint256 amountOutMin,
-            address recipient,
-            bool single
-        ) = abi.decode(
-                message,
-                (bytes, uint256, uint256,  address, bool)
-            );
-        if (single) {
-            (uint32 tokenIn,uint24 poolFee,uint32 tokenOut) = abi.decode(swapPath, (uint32,uint24,uint32));
-            amountOut = _singleHopSwapExactInputAmount(
-                amountIn,
-                amountOutMin,
-                tokenIn,
-                tokenOut,
-                poolFee,
-                recipient
-            );
-        }else {
-            amountOut = this._exactInput(swapPath, recipient, amountIn, amountOutMin, token);
+        emit Debug("cfReceive");
+        emit BytesDebug(message);
+        IERC20(token).approve(swapRouter02, amount);
+        (bool _success, ) = swapRouter02.call(message);
+        if (!_success) {
+            revert UniswapError();
         }
-
         emit UniswapCCM(srcChain, srcAddress, token, amount);
     }
 
@@ -137,15 +117,16 @@ contract UniswapAggregatorChainflip_V1 is Ownable {
         uint256 amountIn,
         uint256 amountOutMinimum,
         address token
-    ) public returns (uint256 amountOut){
+    ) public returns (uint256 amountOut) {
         TransferHelper.safeApprove(token, address(router), amountIn);
-        ISwapRouter.ExactInputParams memory params = ISwapRouter.ExactInputParams({
-            path: path,
-            recipient: recipient,
-            deadline: block.timestamp,
-            amountIn: amountIn,
-            amountOutMinimum: amountOutMinimum
-        });
+        ISwapRouter.ExactInputParams memory params = ISwapRouter
+            .ExactInputParams({
+                path: path,
+                recipient: recipient,
+                deadline: block.timestamp,
+                amountIn: amountIn,
+                amountOutMinimum: amountOutMinimum
+            });
         return router.exactInput(params);
     }
 
